@@ -1,0 +1,25 @@
+# Specify directory where LCMAPS modules are installed
+path  = @libdir@/lcmaps
+ 
+# Module definitions
+verify_proxy = "lcmaps_verify_proxy.mod"
+               " -certdir /etc/grid-security/certificates/"
+               " --allow-limited-proxy"
+
+pilot_sub_proxy = "lcmaps_pilot_sub_proxy.mod"
+#	      " --dont-add-pilot-fqans"
+#	      " --lock-type flock"
+
+scas_client = "lcmaps_scas_client.mod"
+             " -capath /etc/grid-security/certificates/"
+             " -endpoint https://scas.example.org:8443"
+             " -resourcetype wn"
+             " -actiontype execute-now"
+             " --use-dn-and-fqans"
+             " --endpoint-strategy round-robin"
+
+
+# Policy: always run verify_proxy, then try the pilot_sub_proxy.
+pilot_sub_proxy:
+verify_proxy -> pilot_sub_proxy
+pilot_sub_proxy -> scas_client | scas_client

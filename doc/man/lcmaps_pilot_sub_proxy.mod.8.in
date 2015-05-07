@@ -1,0 +1,149 @@
+.TH LCMAPS_PILOT_SUB_PROXY.MOD 8 "May 6, 2015" "@PACKAGE_NAME@ @VERSION@"                                                                           
+.SH NAME
+lcmaps_pilot_sub_proxy.mod \- LCMAPS plugin to handle pilot sub-proxies
+.SH SYNOPSIS
+.nh
+.ad l
+.B lcmaps_pilot_sub_proxy.mod
+.RB [ \-\-add-pilot-fqans
+.IR yes | no ]
+.RB [ \-\-require-limited
+.IR yes | no ]
+.RB [ \-\-match-fqan
+.IR pattern ]
+.RB [ \-\-locktype
+.IR none | flock | fcntl ]
+.SH DESCRIPTION
+This plugin is meant to be used in a very specific pilot job scenario, where the
+payload user has no certificate of its own, but the pilot reliably knows the
+identity of the payload user.
+
+In order for this plugin to run, the pilot should create one more proxy
+delegation encoding the username into the extra CN field of the proxy. This new
+proxy should be passed into the LCMAPS framework as the normal PEM string (e.g.
+for gLExec via the GLEXEC_CLIENT_CERT environment variable). The original pilot
+proxy should be pointed to by the X509_USER_PROXY. When the plugin successfully
+verifies that the payload proxy is signed by the pilot proxy, and both are RFC
+compliant proxies, it will then add the subject DN of the leaf proxy of the
+payload proxy into the set of LCMAPS credentials as the user_dn. Additionally it
+will also add the FQANs of the original proxy to this set of LCMAPS credentials
+unless the flag \-\-add-pilot-fqans is set to 'no'.
+
+
+.SH OPTIONS
+.TP
+.BI "\-\-add-pilot-fqans "{yes|no}
+In addition to adding the subject DN of the leaf-payload-proxy, the plugin can
+also add the FQANs of the proxy. Default is \fIyes\fR, to add the FQANs.
+
+.TP
+.BI "\-\-require-limited "{yes|no}
+Specifies whether an extra test is done to check that both proxies are limited.
+Default is \fIyes\fR, to do this test.
+
+.TP
+.BI "\-\-match-fqan "FQAN-pattern
+When specified, at least one of the FQANs needs to match the given pattern. It
+is a wildcard supporting matching. E.g. '*/Role=pilot*'. Note that this option
+has limited usability unless the client is doing the VOMS verification.
+
+.TP
+.BI "\-\-locktype "{none|flock|fcntl}
+Type of locking mechanism used for reading in the pilot proxy pointed to by the
+X509_USER_PROXY, default is \fInone\fR.
+
+.SH RETURN VALUES
+.TP
+.B LCMAPS_MOD_SUCCESS
+Success.
+.TP
+.B LCMAPS_MOD_FAIL
+Failure.
+
+.SH ENVIRONMENT
+.TP
+X509_USER_PROXY
+should point to a file containing the proxy of the pilot job user. It should be
+a valid RFC3820 compliant proxy.
+
+.SH EXAMPLE
+The following example config file can be used for LCMAPS:
+.PP  
+.br
+ # default path for the modules
+.br
+ path = <libdir>/lcmaps
+.br
+
+.br
+ # Plugin definitions:
+.br
+ verifyproxy = "lcmaps_verify_proxy.mod"
+.br
+               "\-certdir /etc/grid\-security/certificates"
+.br
+
+.br
+ pilot_sub_proxy = "lcmaps_pilot_sub_proxy.mod"
+                  "\-\-match-fqan */Role=pilot*"
+.br
+
+.br
+ scasclient = "lcmaps_scas_client.mod"
+.br
+              " \-capath /etc/grid-security/certificates/"
+.br
+              " \-endpoint https://scas.example.org:8443"
+.br
+              " \-resourcetype wn"
+.br
+              " \-actiontype execute-now"
+.br
+              " \-\-use-dn-and-fqans"
+.br
+
+.br
+ # Policies:
+.br
+ pilot_sub_proxy:
+.br
+ verifyproxy \-> pilot_sub_proxy
+.br
+ pilot_sub_proxy \-> scasclient
+.br
+
+
+.RE
+
+.SH NOTES
+.IP (1) 4
+Since this plugin only checks that the payload proxy is signed by the leaf-proxy
+of the pilot proxy-chain, it is very important to run first the
+lcmaps_verify_proxy.mod which will verify the latter proxy chain.
+.IP (2)
+Since any user allowed to call gLExec could provide these type of proxies, it is
+necessary to verify that the pilot proxy at least has the pilot role.
+.IP (3)
+When running inside gLExec (typical scenario), it is most probably necessary to
+prevent the payload from obtaining the proxy. This can be enforced by the pilot:
+export GLEXEC_TARGET_PROXY=/dev/null
+
+.P
+A typical invocation in gLExec would be something like
+.P
+\fC $ create_pilot_subproxy.sh User:JohnDoe\fR
+.br
+\fC $ export GLEXEC_CLIENT_CERT=${X509_USER_PROXY}_payload\fR
+.br
+\fC $ export GLEXEC_TARGET_PROXY=/dev/null\fR
+
+.SH SEE ALSO
+.BR lcmaps.db (5), 
+.BR lcmaps (3),
+.BR lcmaps_plugins_scas_client (8),
+.BR lcmaps_verify_proxy.mod (8),
+.BR glexec (1)
+
+.SH AUTHORS
+LCMAPS and the LCMAPS plug-ins were written by the Grid Middleware Security Team
+<grid-mw-security@nikhef.nl>.

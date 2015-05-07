@@ -1,0 +1,60 @@
+## Process this file with automake to produce Makefile.in
+
+## Default flags to run aclocal
+ACLOCAL_AMFLAGS = -I project
+
+## Subdirectories list
+SUBDIRS = doc src
+
+docdir = @datadir@/doc/@PACKAGE@-@VERSION@
+doc_DATA    = LICENSE AUTHORS
+
+EXTRA_DIST = bootstrap tools $(doc_DATA)
+
+stage:
+	@set fnord $(MAKEFLAGS); amf=$$2; \
+	dot_seen=no; \
+        target="install"; \
+	prefix_arg="prefix=$(WORKDIR)/../../stage"; \
+        list='$(SUBDIRS)'; for subdir in $$list; do \
+          echo "Making $$target $$prefix_arg in $$subdir"; \
+          if test "$$subdir" = "."; then \
+            dot_seen=yes; \
+            local_target="$$target-am"; \
+          else \
+            local_target="$$target"; \
+          fi; \
+          (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target $$prefix_arg) \
+           || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+        done; \
+        if test "$$dot_seen" = "no"; then \
+          $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
+        fi; test -z "$$fail"
+
+distsrc: dist
+	mv $(distdir).tar.gz $(DISTBIN)/$(distdir)_src.tar.gz
+
+distbin:
+	@set fnord $(MAKEFLAGS); amf=$$2; \
+        dot_seen=no; \
+        target="install"; \
+	tmpdistbin="$(WORKDIR)/dist_bin"; \
+        prefix_arg="prefix=$$tmpdistbin"; \
+        list='$(SUBDIRS)'; for subdir in $$list; do \
+          echo "Making $$target $$prefix_arg in $$subdir"; \
+          if test "$$subdir" = "."; then \
+            dot_seen=yes; \
+            local_target="$$target-am"; \
+          else \
+            local_target="$$target"; \
+          fi; \
+          (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target $$prefix_arg) \
+           || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+        done; \
+        if test "$$dot_seen" = "no"; then \
+          $(MAKE) $(AM_MAKEFLAGS) "$$target-am" $$prefix_arg || exit 1; \
+        fi; test -z "$$fail"; \
+	pushd $$tmpdistbin; \
+	$(AMTAR) -zcf $(DISTBIN)/$(distdir)_bin.tar.gz .; \
+	popd; \
+	rm -rf $$tmpdistbin
