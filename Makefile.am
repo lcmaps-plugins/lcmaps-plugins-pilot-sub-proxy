@@ -7,7 +7,7 @@ ACLOCAL_AMFLAGS = -I project
 SUBDIRS = doc src
 
 docdir = @datadir@/doc/@PACKAGE@-@VERSION@
-doc_DATA    = LICENSE AUTHORS
+doc_DATA    = LICENSE AUTHORS README.md
 
 EXTRA_DIST = bootstrap tools $(doc_DATA)
 
