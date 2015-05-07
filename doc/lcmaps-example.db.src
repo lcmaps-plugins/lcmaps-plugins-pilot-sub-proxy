@@ -7,8 +7,10 @@ verify_proxy = "lcmaps_verify_proxy.mod"
                " --allow-limited-proxy"
 
 pilot_sub_proxy = "lcmaps_pilot_sub_proxy.mod"
-#	      " --dont-add-pilot-fqans"
-#	      " --lock-type flock"
+#                  " --add-pilot-fqans no"
+#                  " --require-limited no"
+#                  " --lock-type flock"
+#                  " --match-fqan */Role=pilot*"
 
 scas_client = "lcmaps_scas_client.mod"
              " -capath /etc/grid-security/certificates/"
