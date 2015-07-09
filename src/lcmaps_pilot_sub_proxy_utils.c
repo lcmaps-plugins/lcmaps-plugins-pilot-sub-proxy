@@ -463,12 +463,21 @@ int psp_store_proxy_dn(X509 *payload, X509 *pilot)    {
 	strncmp(payload_dn+len, "/CN=", 4)!=0)
     {
 	lcmaps_log(LOG_NOTICE,
-	    "%s: payload DN \"%s\" does not start with \"%s/CN=\"\n",
-	    __func__, payload_dn, pilot_dn);
+		"%s: payload DN \"%s\" does not start with \"%s/CN=\"\n",
+		__func__, payload_dn, pilot_dn);
 	goto cleanup;
     }
     /* Set pointer to the value after last /CN= */
     remainder=payload_dn+len+4;
+
+    /* Check remainder does NOT start with a slash (/) */
+    if (remainder[0]=='/')  {
+	lcmaps_log(LOG_NOTICE,
+		"%s: invalid value for last proxy /CN: "
+		"may not start with a slash (/): \"%s\"\n",
+		__func__, remainder);
+	goto cleanup;
+    }
 
     /* Add data, afterwards, we can cleanup payload_dn.
      * Note that the SCAS client should look first at the getCredentialData
