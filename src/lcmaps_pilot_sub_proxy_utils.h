@@ -58,6 +58,12 @@ int psp_get_payload_proxy(STACK_OF(X509) **certstack,
                       int argc, lcmaps_argument_t *argv);
 
 /**
+ * Obtains effective proxy PathLength constraint for leaf proxy in pcpathlen.
+ * \return 0 on success, -1 on error
+ */
+int psp_get_pcpathlen(STACK_OF(X509) *chain, long *pcpathlen);
+
+/**
  * Obtains the FQANs from the plugin arguments
  * \return 0 on success, -1 on error
  */
@@ -88,11 +94,11 @@ int psp_proxy_is_limited(X509 *proxy);
 int psp_match_fqan(int nfqan, char **fqans, const char *pattern);
 
 /**
- * Gets subjectDN of the payload proxy and stores it into the LCMAPS framework
- * as the user_dn
+ * Gets extra /CN=<...> field of subjectDN of the payload proxy and and stores
+ * it into the LCMAPS framework as the user_dn
  * \return 0 on success, -1 on error
  */
-int psp_store_proxy_dn(X509 *payload);
+int psp_store_proxy_dn(X509 *payload, X509 *pilot);
 
 /**
  * Stores the FQANs in the 'run-time' credential data, such that they can be

@@ -275,6 +275,7 @@ static int plugin_run_or_verify(int argc, lcmaps_argument_t *argv,
     X509 *		payload_cert = NULL;
     int                 nfqans       = -1;
     char **             fqans        = NULL;
+    long                pcpathlen;
 
     /* Set suitable logstr */
     if (lcmaps_mode == PLUGIN_RUN)
@@ -348,8 +349,20 @@ static int plugin_run_or_verify(int argc, lcmaps_argument_t *argv,
     if (psp_verify_proxy_signature(payload_cert, pilot_cert))
 	goto fail_plugin;
     
-    /* Store the DN of the payload cert as user_dn */
-    if (psp_store_proxy_dn(payload_cert))
+    /* Get effective pcPathLen for payload proxy */
+    if (psp_get_pcpathlen(payload_chain, &pcpathlen))
+	goto fail_plugin;
+
+    /* Check the remaining effective proxy pathlength constraint is 0 */
+    if (pcpathlen!=0)	{
+	lcmaps_log(LOG_WARNING,
+		"%s: effective proxy pathlength constraint for leaf proxy "
+		"is %ld instead of 0\n", __func__, pcpathlen);
+	goto fail_plugin;
+    }
+
+    /* Store the value of the last /CN=... of the payload cert as user_dn */
+    if (psp_store_proxy_dn(payload_cert, pilot_cert))
 	goto fail_plugin;
 
     /* Store the FQANs of the proxy when add_pilot_fqans==1 */

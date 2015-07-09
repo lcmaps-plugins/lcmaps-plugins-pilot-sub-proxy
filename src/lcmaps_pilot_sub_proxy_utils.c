@@ -225,6 +225,93 @@ int psp_get_fqans(int *nfqans, char ***fqans, int argc, lcmaps_argument_t *argv)
 }
 
 /**
+ * Obtains effective proxy PathLength constraint for leaf proxy in pcpathlen.
+ * \return 0 on success, -1 on error
+ */
+int psp_get_pcpathlen(STACK_OF(X509) *chain, long *pcpathlen) {
+    const int purpose=X509_PURPOSE_MIN + X509_PURPOSE_get_by_sname("sslclient");
+    int i, depth, eec_index, amount_of_CAs=0;
+    long proxy_path_len_countdown=-1;
+    X509 *cert=NULL;
+
+    /* Go through chain to look for EEC: count number of CA certs */
+    depth = sk_X509_num(chain);
+
+    /* How many CA certs are there in the chain? */
+    for (i = 0; i < depth; i++) {
+	/* final argument to X509_check_purpose() is whether to check
+	 * for CAness */
+	if (X509_check_purpose(sk_X509_value(chain, i), purpose, 1))
+	    amount_of_CAs++;
+    }
+
+    /* Getting the user cert (filtering the CAs and such) */
+    eec_index = depth-(amount_of_CAs+1);
+
+    /* Next check also catches depth==0 */
+    if (eec_index < 0) {
+	/* Counting the stack went wrong. Erroneous stack? */
+	lcmaps_log(LOG_NOTICE,
+		"%s: cannot parse certificate chain: "
+		"depth-(amount_of_CAs+1)=%d < 0\n", __func__, eec_index);
+	return -1;
+    }
+
+    /* Do we have a proxy cert after the EEC? */
+    if (eec_index==0) {
+	lcmaps_log(LOG_NOTICE,
+		"%s: cannot find proxy cert in chain, EEC seems end\n",
+		__func__);
+	return -1;
+    }
+
+    /* Now go through proxy certificates */
+    for (i=eec_index-1; i>=0; i--)    {
+	/* Get cert and check it's RFC */
+	cert=sk_X509_value(chain, i);
+	if (psp_proxy_is_rfc(cert)!=1)    {
+	    lcmaps_log(LOG_NOTICE,
+		    "%s: proxy at depth %d is not an RFC proxy\n", __func__, i);
+	    return -1;
+	}
+
+	/* Now check and update the effective remaining proxy path length */
+	switch (proxy_path_len_countdown)   {
+	    case 0:
+		lcmaps_log(LOG_NOTICE,
+			"%s: Proxy Path Length Constraint exceeded at "
+			"chain-depth %d of %d\n", __func__, i, depth);
+		return -1;
+	    case -1:
+		/* no effective pcpathlen yet: set when we have one now */
+		if (cert->ex_pcpathlen != -1)
+		    proxy_path_len_countdown=cert->ex_pcpathlen;
+		break;
+	    default:
+		/* already effective pcpathlen */
+		if (cert->ex_pcpathlen != -1 &&
+		    cert->ex_pcpathlen<proxy_path_len_countdown)
+		    /* we have a new one and it is smaller: update */
+		    proxy_path_len_countdown=cert->ex_pcpathlen;
+		else
+		    /* decrease current one */
+		    proxy_path_len_countdown--;
+		break;
+	}
+
+	/* Log on debug where we are */
+	lcmaps_log(LOG_DEBUG,
+		"%s: effective proxy path length at chain-depth %d is %ld\n",
+		__func__, i, proxy_path_len_countdown);
+    }
+
+    /* Now set the value */
+    *pcpathlen=proxy_path_len_countdown;
+
+    return 0;
+}
+
+/**
  * Verifies that payload proxy is signed by pilot proxy
  * \return 0 on success, -1 on error
  */
@@ -234,8 +321,7 @@ int psp_verify_proxy_signature(X509 *payload, X509 *pilot)  {
 
     if (pilot==NULL || payload==NULL)	{
 	lcmaps_log(LOG_WARNING,
-		"%s: pilot or payload proxy is unset.\n",
-		__func__);
+		"%s: pilot or payload proxy is unset.\n", __func__);
 	return -1;
     }
     
@@ -253,8 +339,7 @@ int psp_verify_proxy_signature(X509 *payload, X509 *pilot)  {
     EVP_PKEY_free(pilot_key);
     if (result!=1)  {
 	lcmaps_log(LOG_WARNING,
-		"%s: payload cert is not signed by pilot cert\n",
-		__func__);
+		"%s: payload cert is not signed by pilot cert\n", __func__);
 	return -1;
     }
 
@@ -343,15 +428,17 @@ int psp_match_fqan(int nfqan, char **fqans, const char *pattern)    {
 }
 
 /**
- * Gets subjectDN of the payload proxy and stores it into the LCMAPS framework
- * as the user_dn
+ * Gets extra /CN=<...> field of subjectDN of the payload proxy and stores
+ * its value into the LCMAPS framework as the user_dn
  * \return 0 on success, -1 on error
  */
-int psp_store_proxy_dn(X509 *payload)    {
+int psp_store_proxy_dn(X509 *payload, X509 *pilot)    {
     X509_NAME *subject=NULL;
-    char *payload_dn=NULL;
-    int rc;
+    char *payload_dn=NULL, *pilot_dn=NULL, *remainder;
+    size_t len;
+    int rc=-1;
 
+    /* Get payload subjectDN */
     if ( (subject=X509_get_subject_name(payload))==NULL ||
 	 (payload_dn=X509_NAME_oneline(subject, NULL, 0))==NULL )
     {
@@ -360,21 +447,46 @@ int psp_store_proxy_dn(X509 *payload)    {
 	return -1;
     }
 
+    /* Get pilot subjectDN */
+    if ( (subject=X509_get_subject_name(pilot))==NULL ||
+	 (pilot_dn=X509_NAME_oneline(subject, NULL, 0))==NULL )
+    {
+	lcmaps_log(LOG_WARNING, "%s: cannot obtain DN of pilot certificate\n",
+		__func__);
+	goto cleanup;
+    }
+
+    len=strlen(pilot_dn);
+    /* payload DN should be pilot + "/CN=..." */
+    if (strlen(payload_dn)<len+4 ||
+	strncmp(payload_dn, pilot_dn, len)!=0 ||
+	strncmp(payload_dn+len, "/CN=", 4)!=0)
+    {
+	lcmaps_log(LOG_NOTICE,
+	    "%s: payload DN \"%s\" does not start with \"%s/CN=\"\n",
+	    __func__, payload_dn, pilot_dn);
+	goto cleanup;
+    }
+    /* Set pointer to the value after last /CN= */
+    remainder=payload_dn+len+4;
+
     /* Add data, afterwards, we can cleanup payload_dn.
      * Note that the SCAS client should look first at the getCredentialData
      * (i.e. the 'run-time' data) and only then 'fallback' at the
      * lcmaps_getArgValue (i.e. the initialize/introspect-time data). */
-    rc=addCredentialData(DN, &payload_dn);
+    rc=addCredentialData(DN, &remainder);
     if (rc==0)
 	lcmaps_log(LOG_DEBUG,
-		"%s: successfully added DN \"%s\" to credential data\n",
-		__func__, payload_dn);
+		"%s: successfully added user \"%s\" to credential data\n",
+		__func__, remainder);
     else
 	lcmaps_log(LOG_WARNING,
-		"%s: failed to add DN \"%s\" to credential data\n",
-		__func__, payload_dn);
+		"%s: failed to add user \"%s\" to credential data\n",
+		__func__, remainder);
 
+cleanup:
     free(payload_dn);
+    free(pilot_dn);
 
     return rc;
 }
@@ -391,8 +503,8 @@ int psp_store_fqans(int nfqans, char **fqans) {
     for (i=0; i<nfqans; i++)    {
 	if (addCredentialData(LCMAPS_VO_CRED_STRING, &(fqans[i]))) {
 	    lcmaps_log(LOG_WARNING,
-		"%s: failed to add FQAN \"%s\" to credential data\n",
-		__func__, fqans[i]);
+		    "%s: failed to add FQAN \"%s\" to credential data\n",
+		    __func__, fqans[i]);
 	    return -1;
 	}
     }
