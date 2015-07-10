@@ -24,19 +24,23 @@ the payload user from getting access to the pilot proxy, the pilot should
 normally also specify the environment variable
 > export GLEXEC_TARGET_PROXY=/dev/null
 
-This plugin will verify that:
-* The payload proxy (i.e. that pointed to by _GLEXEC_CLIENT_CERT_) is signed by
-the proxy pointed to by the _X509_USER_PROXY_ variable.
-* That both pilot and payload proxy are
-[RFC3820](http://tools.ietf.org/html/rfc3820) compliant.
-* It optionally (default) will check that both pilot and payload proxy are
-Limited.
-* It optionally can verify that at least one of the FQANs matches a pre-defined
-pattern.
-When all checks succeed the plugin will register the leaf-proxy DN of the
-payload (i.e. that of the extra proxy delegation) into the LCMAPS framework. It
-can optionally (default) also store the FQANs of the proxy into the LCMAPS
-framework.
+This plugin will verify (in this order) that:
+* that both pilot and payload proxy are
+[RFC3820](http://tools.ietf.org/html/rfc3820) compliant,
+* it optionally (default) will check that both pilot and payload proxy are
+Limited,
+* it optionally can verify that at least one of the FQANs matches a pre-defined
+pattern,
+* the payload proxy (i.e. that pointed to by _GLEXEC_CLIENT_CERT_) is signed by
+the proxy pointed to by the _X509_USER_PROXY_ variable,
+* the effective proxy pathlength contraint for the payload proxy does not exceed
+the maximum (default 0),
+* the value of the extra proxy commonName RDN does not start with a slash (/).
+
+When all checks succeed the plugin will register the value of the extra
+commonName RDN of the payload (i.e. that of the extra proxy delegation) into the
+LCMAPS framework. It can optionally (default) also store the FQANs of the proxy
+into the LCMAPS framework.
 
 It is important to run this plugin after the ```lcmaps-plugins-verify-proxy```,
 to ensure that the entire proxy chain (incl. the pilot-sub-proxy) has been fully

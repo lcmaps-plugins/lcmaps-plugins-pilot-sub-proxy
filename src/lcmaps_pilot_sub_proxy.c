@@ -30,7 +30,9 @@
  * is allowed to make pilot proxies (has role pilot) */
 
 #include <openssl/x509.h>
+#include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "lcmaps_plugins_pilot_sub_proxy_config.h"
 
@@ -73,6 +75,9 @@ static char *fqan_pattern=NULL;
 /** Lock type to use for reading the X509_USER_PROXY */
 static lock_type_t lock_type=LOCK_NOLOCK;
 
+/** Default maximum effective proxy pathlen for leaf payload proxy */
+static long maxpcpathlen=0;
+
 
 /************************************************************************
  * private prototypes
@@ -92,6 +97,7 @@ static int plugin_run_or_verify(int argc, lcmaps_argument_t *argv,
  */
 int plugin_initialize(int argc, char **argv) {
     const char * logstr = PLUGIN_PREFIX"-plugin_initialize()";
+    char *endptr=NULL;
     int i;
 
     /* Log commandline parameters on debug */
@@ -190,6 +196,32 @@ int plugin_initialize(int argc, char **argv) {
 		return LCMAPS_MOD_FAIL;
 	    }
 	    i++;
+	}
+	else if (strcmp(argv[i], "--max-pcpathlen") == 0)
+	{
+	    /* check valid argument */
+	    if (argv[i + 1] == NULL || argv[i + 1][0]=='\0') {
+		lcmaps_log(LOG_ERR,
+		    "%s: option %s needs to be followed by a valid number\n",
+		    logstr, argv[i]);
+		return LCMAPS_MOD_FAIL;
+	    }
+
+	    /* try to convert argument to long */
+	    errno=0;
+	    maxpcpathlen=strtol(argv[i + 1],&endptr,10);
+	    /* endptr will either point to first non-valid char, or end of valid
+	     * string unless argv[i+1]=="", which we already checked above */
+	    if ( errno!=0 || *endptr!='\0' ||
+		 (maxpcpathlen<0 && maxpcpathlen!=-1) )
+	    {
+		lcmaps_log(LOG_ERR,
+		    "%s: Illegal value for \"%s\" (%s): "
+		    "Should be a (long int)>=0 or -1\n",
+		    logstr, argv[i], argv[i + 1]);
+		return LCMAPS_MOD_FAIL;
+	    }
+            i++;
 	}
 	else
 	{
@@ -353,15 +385,17 @@ static int plugin_run_or_verify(int argc, lcmaps_argument_t *argv,
     if (psp_get_pcpathlen(payload_chain, &pcpathlen))
 	goto fail_plugin;
 
-    /* Check the remaining effective proxy pathlength constraint is 0 */
-    if (pcpathlen!=0)	{
+    /* Check that remaining eff. proxy pathlength constraint is not too large */
+    if (maxpcpathlen>=0 && (pcpathlen==-1 || pcpathlen>max))	{
 	lcmaps_log(LOG_WARNING,
-		"%s: effective proxy pathlength constraint for leaf proxy "
-		"is %ld instead of 0\n", __func__, pcpathlen);
+		"%s: effective proxy pathlength constraint for payload proxy "
+		"is too large: %ld (maximum: %ld)\n",
+		__func__, pcpathlen, maxpcpathlen);
 	goto fail_plugin;
     }
 
-    /* Store the value of the last /CN=... of the payload cert as user_dn */
+    /* After doing last check, whether it doesn't start with a slash, store the
+     * value of the last /CN=... of the payload cert as user_dn */
     if (psp_store_proxy_dn(payload_cert, pilot_cert))
 	goto fail_plugin;
 
