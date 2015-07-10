@@ -381,12 +381,14 @@ static int plugin_run_or_verify(int argc, lcmaps_argument_t *argv,
     if (psp_verify_proxy_signature(payload_cert, pilot_cert))
 	goto fail_plugin;
     
-    /* Get effective pcPathLen for payload proxy */
+    /* Get effective pcPathLen for payload proxy, this also checks we have not
+     * already exceeded it */
     if (psp_get_pcpathlen(payload_chain, &pcpathlen))
 	goto fail_plugin;
 
-    /* Check that remaining eff. proxy pathlength constraint is not too large */
-    if (maxpcpathlen>=0 && (pcpathlen==-1 || pcpathlen>max))	{
+    /* Check that the remaining effective proxy pathlength constraint for the
+     * payload proxy is not too large */
+    if ( maxpcpathlen>=0 && (pcpathlen==-1 || pcpathlen>maxpcpathlen) )	{
 	lcmaps_log(LOG_WARNING,
 		"%s: effective proxy pathlength constraint for payload proxy "
 		"is too large: %ld (maximum: %ld)\n",
