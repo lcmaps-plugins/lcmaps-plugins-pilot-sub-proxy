@@ -70,17 +70,17 @@ verb()	{
 }
 
 # Get command line options
-while getopts ":hvc:u:P:x:p:" i $*;do
+while getopts ":hvc:u:P:x:p:" i "$@";do
     case $i in
 	h)  usage ;;
 	v)  VERB=1 ;;
-	c)  PROXY_CN=$OPTARG ;;
-	u)  user=$OPTARG ;;
-	P)  PREFIX=$OPTARG ;;
-	x)  X509_USER_PROXY=$OPTARG ;;
-	p)  PROXY_FILE=$OPTARG ;;
-	:)  illoption $i $OPTARG 2 ;;
-	?)  illoption $i $OPTARG 2 ;;
+	c)  PROXY_CN="$OPTARG" ;;
+	u)  user="$OPTARG" ;;
+	P)  PREFIX="$OPTARG" ;;
+	x)  X509_USER_PROXY="$OPTARG" ;;
+	p)  PROXY_FILE="$OPTARG" ;;
+	:)  illoption $i "$OPTARG" 2 ;;
+	?)  illoption $i "$OPTARG" 2 ;;
     esac
 done
 
@@ -157,7 +157,7 @@ fi
 verb "Got subject \"$SUBJ\""
 
 # Create certificate signing request
-verb "Generating $BITS bits RSA key and request"
+verb "Generating $BITS bits RSA key and request for \"${PROXY_CN}\""
 openssl req \
     -new -nodes -newkey rsa:$BITS -subj "${SUBJ}/CN=${PROXY_CN}" \
     -keyout $PROXYKEY -out $PROXYREQ 2> $LOGFILE || {
