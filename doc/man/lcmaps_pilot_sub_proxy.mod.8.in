@@ -30,24 +30,27 @@ The plugin will verify (in this order) that
 .\" use TP instead of groff specific nr
 .TP 3
 1.
-both the pilot and payload proxy are RFC3820 type proxies,
+the pilot proxy contains the its private key,
 .TP
 2.
+both the pilot and payload proxy are RFC3820 type proxies,
+.TP
+3.
 both the pilot and payload proxy are limited proxies (unless \-\-require-limited
 is set to no),
 .TP
-3.
+4.
 at least one of the FQANs matches a specified pattern (when using
 \-\-match-fqan),
 .TP
-4.
+5.
 the payload proxy is signed by the pilot proxy,
 .TP
-5.
+6.
 the effective proxy pathlength contraint for the payload proxy does not exceed
 the maximum (normally 0, unless changed with \-\-max-pcpathlen),
 .TP
-6.
+7.
 the value of the extra proxy commonName RDN does not start with a slash (/).
 .PP
 If all checks succeed, the plugin will add the value of the extra payload proxy

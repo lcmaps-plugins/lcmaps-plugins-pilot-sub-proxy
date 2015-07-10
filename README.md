@@ -25,6 +25,7 @@ normally also specify the environment variable
 > export GLEXEC_TARGET_PROXY=/dev/null
 
 This plugin will verify (in this order) that:
+* that the pilot proxy contains its private key,
 * that both pilot and payload proxy are
 [RFC3820](http://tools.ietf.org/html/rfc3820) compliant,
 * it optionally (default) will check that both pilot and payload proxy are

@@ -73,10 +73,16 @@ static int payload_chain_needs_cleaning=0;
  * Static prototypes
  ************************************************************************/
 
-/* Convert PEM string to stack of X509 certificates. Stack needs to be cleaned
- * up afterwards.
+/* Convert PEM string to stack of X509 certificates and private key. Stack and
+ * key need to be cleaned up afterwards. When pkey==NULL, no private key is
+ * obtained.
  * \return 0 on success or -1 on error */
-static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, char *certstring);
+static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, EVP_PKEY **pkey,
+				    char *certstring);
+
+/* Empty verify callback for reading in the password-less private key
+ * \return 0 */
+static int empty_callback(char *buf, int buf_size, int verify, void *cb_tmp);
 
 /* Drops privilege to an unprivileged account. Can be raised using \see
  * raise_priv
@@ -107,6 +113,8 @@ static int read_proxy(const char *path, int lock_type, char **proxy);
 int psp_get_pilot_proxy(STACK_OF(X509) **certstack, lock_type_t lock_type)  {
     char *proxy=getenv("X509_USER_PROXY");
     char *pem_buf=NULL;
+    STACK_OF(X509)*chain=NULL;
+    EVP_PKEY *privkey=NULL;
     int rc;
     int lock_flags;
 
@@ -136,14 +144,28 @@ int psp_get_pilot_proxy(STACK_OF(X509) **certstack, lock_type_t lock_type)  {
 	return -1;
 
     /* Convert PEM buffer to certificate chain */
-    rc= pem_string_to_x509_chain(certstack, pem_buf);
+    rc= pem_string_to_x509_chain(&chain, &privkey, pem_buf);
     free(pem_buf);
 
     if (rc!=0)   {
 	lcmaps_log(LOG_WARNING,
-                    "%s: cannot convert pemstring to chain.\n", __func__);
+                    "%s: cannot convert pemstring to chain and key.\n",
+		    __func__);
 	return -1;
     }
+
+    /* Verify that private key belongs to first certificate */
+    if (X509_check_private_key(sk_X509_value(chain, 0), privkey) !=1 )    {
+	lcmaps_log(LOG_NOTICE,
+		"%s: leaf pilot proxy doesn't belong to private key\n",
+		__func__);
+	EVP_PKEY_free(privkey);
+	sk_X509_pop_free(chain, X509_free);
+	return -1;
+    }
+
+    EVP_PKEY_free(privkey);
+    *certstack=chain;
 
     return 0;
 }
@@ -153,7 +175,7 @@ int psp_get_pilot_proxy(STACK_OF(X509) **certstack, lock_type_t lock_type)  {
  * \return 0 on success, -1 on error
  */
 int psp_get_payload_proxy(STACK_OF(X509) **certstack,
-		      int argc, lcmaps_argument_t *argv)	{
+			  int argc, lcmaps_argument_t *argv)	{
     void *value;
     STACK_OF(X509)*chain=NULL;
     char *pem=NULL;
@@ -174,7 +196,7 @@ int psp_get_payload_proxy(STACK_OF(X509) **certstack,
         }
 
         /* Convert pem string to chain */
-        if (pem_string_to_x509_chain(&chain, pem)!=0)   {
+        if (pem_string_to_x509_chain(&chain, NULL, pem)!=0)   {
             lcmaps_log(LOG_WARNING,
                     "%s: cannot convert pemstring to chain.\n", __func__);
             return -1;
@@ -540,16 +562,19 @@ void psp_cleanup_chains(STACK_OF(X509) *pilot, STACK_OF(X509) *payload)  {
  * Private functions
  ************************************************************************/
 
-/**
- * Convert PEM string to stack of X509 certificates. Stack needs to be cleaned
- * up afterwards.
+/*
+ * Convert PEM string to stack of X509 certificates and private key. Stack and
+ * key need to be cleaned up afterwards. When pkey==NULL, no private key is
+ * obtained.
  * \return 0 on success or -1 on error
  */
-static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, char *certstring)
+static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, EVP_PKEY **pkey,
+				    char *certstring)
 {
     STACK_OF(X509) *mystack=NULL;
     BIO *certbio = NULL;
     STACK_OF(X509_INFO) *sk=NULL;
+    EVP_PKEY *myprivkey=NULL;
     X509_INFO *xi;
 
     /* protect input */
@@ -569,9 +594,31 @@ static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, char *certstring
 
     /* Convert PEM via memory BIO to stack of X509_INFO */
     sk=PEM_X509_INFO_read_bio(certbio, NULL, NULL, NULL);
+    if (!sk)	{
+	lcmaps_log(LOG_NOTICE,
+		"%s: Cannot convert to stack of X509_INFO\n", __func__);
+	BIO_free(certbio);
+	goto err;
+    }
+
+    /* Do we also want the private key? */
+    if (pkey)	{
+	/* Reset bio */
+	if (BIO_reset(certbio) != 1)	{
+	    BIO_free(certbio);
+	    goto err;
+	}
+	/* Now read the private key */
+	myprivkey=PEM_read_bio_PrivateKey(certbio, NULL, empty_callback, NULL);
+	if (!myprivkey)	{
+	    lcmaps_log(LOG_NOTICE, "%s: No private key found\n", __func__);
+	    BIO_free(certbio);
+	    goto err;
+	}
+    }
+
+    /* Now cleanup */
     BIO_free(certbio);
-    if (!sk)
-        goto err;
 
     /* Loop over the stack and convert */
     while (sk_X509_INFO_num(sk)) {
@@ -585,18 +632,33 @@ static int pem_string_to_x509_chain(STACK_OF(X509) **certstack, char *certstring
     sk_X509_INFO_free(sk);
 
     /* Check there is at least one certificate */
-    if (!sk_X509_num(mystack))
+    if (!sk_X509_num(mystack))	{
+	lcmaps_log(LOG_NOTICE, "%s: Certificate stack is empty\n", __func__);
         goto err;
+    }
 
     /* Cleanup and return success */
     *certstack=mystack;
+    if (pkey)
+	*pkey=myprivkey;
 
     return 0;
 
 err:
     /* Cleanup and error out */
     sk_X509_pop_free(mystack, X509_free);
+    EVP_PKEY_free(myprivkey);
     return 1;
+}
+
+/**
+ * Empty verify callback for reading in the password-less private key
+ * \return 0
+ */
+static int empty_callback(char *buf, int buf_size, int verify, void *cb_tmp) {
+     if (buf_size > 0)
+	 buf = '\0';
+     return 0;
 }
 
 /**
