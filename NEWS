@@ -1,0 +1,3 @@
+Version 0.0.1:
+- initial release of lcmaps-plugins-pilot-sub-proxy: plugin to put the
+  'pilot-sub-proxy' username into the LCMAPS credential data.
