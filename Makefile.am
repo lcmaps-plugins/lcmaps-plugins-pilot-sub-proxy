@@ -9,7 +9,7 @@ SUBDIRS = doc src
 docdir = @datadir@/doc/@PACKAGE@-@VERSION@
 doc_DATA    = LICENSE AUTHORS README.md
 
-EXTRA_DIST = bootstrap tools $(doc_DATA)
+EXTRA_DIST = bootstrap tools spec $(doc_DATA)
 
 stage:
 	@set fnord $(MAKEFLAGS); amf=$$2; \
