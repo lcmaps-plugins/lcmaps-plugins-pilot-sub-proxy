@@ -657,7 +657,7 @@ err:
  */
 static int empty_callback(char *buf, int buf_size, int verify, void *cb_tmp) {
      if (buf_size > 0)
-	 buf = '\0';
+	 *buf = '\0';
      return 0;
 }
 
