@@ -11,7 +11,7 @@ lcmaps_pilot_sub_proxy.mod \- LCMAPS plugin to handle pilot sub-proxies
 .IR yes | no ]
 .RB [ \-\-match-fqan
 .IR pattern ]
-.RB [ \-\-locktype
+.RB [ \-\-lock-type
 .IR none | flock | fcntl ]
 .RB [ \-\-max-pcpathlen
 .IR value ]
@@ -30,33 +30,34 @@ The plugin will verify (in this order) that
 .\" use TP instead of groff specific nr
 .TP 3
 1.
-the pilot proxy contains the its private key,
+the pilot proxy contains its private key,
 .TP
 2.
 both the pilot and payload proxy are RFC3820 type proxies,
 .TP
 3.
-both the pilot and payload proxy are limited proxies (unless \-\-require-limited
-is set to no),
+both the pilot and payload proxy are limited proxies (unless
+\fB\-\-require-limited\fR is set to \fIno\fR),
 .TP
 4.
 at least one of the FQANs matches a specified pattern (when using
-\-\-match-fqan),
+\fB\-\-match-fqan\fR),
 .TP
 5.
 the payload proxy is signed by the pilot proxy,
 .TP
 6.
 the effective proxy pathlength contraint for the payload proxy does not exceed
-the maximum (normally 0, unless changed with \-\-max-pcpathlen),
+the maximum (normally 0, unless changed with \fB\-\-max-pcpathlen\fR),
 .TP
 7.
-the value of the extra proxy commonName RDN does not start with a slash (/).
+the value of the extra proxy commonName RDN (CN) does not start with a
+slash (/).
 .PP
 If all checks succeed, the plugin will add the value of the extra payload proxy
 commonName RDN into the set of LCMAPS credentials as the user_dn. Additionally
 it will also add the FQANs of the original proxy to this set of LCMAPS
-credentials unless the flag \-\-add-pilot-fqans is set to 'no'.
+credentials unless the flag \fB\-\-add-pilot-fqans\fR is set to \fIno\fR.
 
 .SH OPTIONS
 .TP
@@ -76,16 +77,16 @@ is a wildcard supporting matching. E.g. '*/Role=pilot*'. Note that this option
 has limited usability unless the client is doing the VOMS verification.
 
 .TP
-.BI "\-\-locktype "{none|flock|fcntl}
+.BI "\-\-lock-type "{none|flock|fcntl}
 Type of locking mechanism used for reading in the pilot proxy pointed to by the
 X509_USER_PROXY, default is \fInone\fR.
 
 .TP
 .BI "\-\-max-pcpathlen "maximum\ effective\ pcPathLen
 Maximum effective proxy pathlength constraint for the leaf payload proxy.
-Default is 0, i.e. no proxies are allowed after it. Use -1 for infinite.
-\fBNOTE\fR: under normal circumstances this option should be left to the default
-value 0.
+Default is \fI0\fR, i.e. no proxies are allowed after it. Use \fI-1\fR for
+infinite. \fBNOTE\fR: under normal circumstances this option should be left to
+the default value 0.
 
 .SH RETURN VALUES
 .TP
@@ -115,12 +116,12 @@ The following example config file can be used for LCMAPS:
 .br
  verifyproxy = "lcmaps_verify_proxy.mod"
 .br
-               "\-certdir /etc/grid\-security/certificates"
+               " \-certdir /etc/grid\-security/certificates"
 .br
 
 .br
  pilot_sub_proxy = "lcmaps_pilot_sub_proxy.mod"
-                  "\-\-match-fqan */Role=pilot*"
+                   " \-\-match-fqan */Role=pilot*"
 .br
 
 .br
