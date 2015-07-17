@@ -1,11 +1,11 @@
-.TH CREATE_PILOT_SUBPROXY.SH 1 "July 15, 2015" "@PACKAGE_NAME@ @VERSION@"
+.TH CREATE_PILOT_SUB_PROXY.SH 1 "July 15, 2015" "@PACKAGE_NAME@ @VERSION@"
 
 .SH NAME
-create_pilot_subproxy.sh \-
+create_pilot_sub_proxy.sh \-
 Create a pilot sub-proxy
 
 .SH SYNOPSIS
-.B create_pilot_subproxy.sh
+.B create_pilot_sub_proxy.sh
 .RB [ \-c
 .IR CN\ value ]
 .RB [ \-u

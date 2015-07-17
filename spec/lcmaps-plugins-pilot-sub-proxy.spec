@@ -53,10 +53,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %doc AUTHORS LICENSE NEWS doc/lcmaps-example.db
-%{_bindir}/create_pilot_subproxy.sh
+%{_bindir}/create_pilot_sub_proxy.sh
 %{_libdir}/lcmaps/lcmaps_pilot_sub_proxy.mod
 %{_libdir}/lcmaps/liblcmaps_pilot_sub_proxy.so
-%{_mandir}/man1/create_pilot_subproxy.sh.1*
+%{_mandir}/man1/create_pilot_sub_proxy.sh.1*
 %{_mandir}/man8/lcmaps_pilot_sub_proxy.mod.8*
 
 %changelog

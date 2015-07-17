@@ -1,10 +1,10 @@
 mandir = $(datadir)/man
 
 man_MANS = man/lcmaps_pilot_sub_proxy.mod.8 \
-           man/create_pilot_subproxy.sh.1
+           man/create_pilot_sub_proxy.sh.1
 
 man_INPUT = man/lcmaps_pilot_sub_proxy.mod.8.in \
-            man/create_pilot_subproxy.sh.1.in
+            man/create_pilot_sub_proxy.sh.1.in
 
 docdir = $(datadir)/doc/@PACKAGE@-@VERSION@
 doc_DATA = lcmaps-example.db

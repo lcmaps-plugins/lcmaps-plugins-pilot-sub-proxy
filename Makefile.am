@@ -9,6 +9,8 @@ SUBDIRS = doc src
 docdir = @datadir@/doc/@PACKAGE@-@VERSION@
 doc_DATA    = LICENSE AUTHORS README.md
 
+bin_SCRIPTS = tools/create_pilot_sub_proxy.sh
+
 EXTRA_DIST = bootstrap tools spec $(doc_DATA)
 
 stage:

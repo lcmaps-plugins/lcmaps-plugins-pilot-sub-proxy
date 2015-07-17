@@ -16,7 +16,7 @@ user identity is somehow encoded into the new proxy CN= field. This is again
 very similar to the EGI per-user sub-proxy scenario, where the user identity is
 encoded in the _first_ proxy delegation created by a robot certificate on a
 portal.
-A simple shell script which can be used for this, ```create_pilot_subproxy.sh```,
+A simple shell script which can be used for this, ```create_pilot_sub_proxy.sh```,
 is provided in the ```tools``` directory.
 
 It should set this new proxy as the _GLEXEC_CLIENT_CERT_. In order to prevent

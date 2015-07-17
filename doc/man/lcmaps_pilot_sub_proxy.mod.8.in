@@ -167,7 +167,7 @@ export GLEXEC_TARGET_PROXY=/dev/null
 .P
 A typical invocation in gLExec would be something like
 .P
-\fC $ create_pilot_subproxy.sh User:JohnDoe\fR
+\fC $ create_pilot_sub_proxy.sh User:JohnDoe\fR
 .br
 \fC $ export GLEXEC_CLIENT_CERT=${X509_USER_PROXY}_payload\fR
 .br
