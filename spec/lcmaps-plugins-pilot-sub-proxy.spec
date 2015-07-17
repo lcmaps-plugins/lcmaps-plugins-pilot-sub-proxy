@@ -17,7 +17,8 @@ component that processes the users Grid credentials (typically X.509
 proxy certificates and VOMS attributes) and maps the user to a local
 account based on the site local policy.
 
-This package contains the pilot sub-proxy plugin.
+This package contains the pilot sub-proxy plugin and a command-line
+tool.
 
 %prep
 %setup -q
@@ -52,8 +53,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %doc AUTHORS LICENSE NEWS doc/lcmaps-example.db
+%{_bindir}/create_pilot_subproxy.sh
 %{_libdir}/lcmaps/lcmaps_pilot_sub_proxy.mod
 %{_libdir}/lcmaps/liblcmaps_pilot_sub_proxy.so
+%{_mandir}/man1/create_pilot_subproxy.sh.1*
 %{_mandir}/man8/lcmaps_pilot_sub_proxy.mod.8*
 
 %changelog

@@ -1,0 +1,83 @@
+.TH CREATE_PILOT_SUBPROXY.SH 1 "July 15, 2015" "@PACKAGE_NAME@ @VERSION@"
+
+.SH NAME
+create_pilot_subproxy.sh \-
+Create a pilot sub-proxy
+
+.SH SYNOPSIS
+.B create_pilot_subproxy.sh
+.RB [ \-c
+.IR CN\ value ]
+.RB [ \-u
+.IR username ]
+.RB [ \-P
+.IR prefix ]
+.RB [ \-x
+.IR pilot\ proxy ]
+.RB [ \-p
+.IR payload\ proxy ]
+.RB [ \-h ]
+.RB [ \-v ]
+
+.SH DESCRIPTION
+This simple script can create a pilot sub-proxy from a given pilot proxy
+certificate for use with the lcmaps-plugins-pilot-sub-proxy plugin.
+
+
+.SH OPTIONS
+.TP
+.BI "\-c " "commonName RDN"
+Specifies the value (prefix+username) of the extra CN field of the pilot
+sub-proxy, i.e. added after "/CN=". See also \fB\-u\fR and \fB\-P\fR.
+
+.TP
+.BI "\-u " username
+Specifies the username to add after the prefix in the extra CN field of the
+pilot sub-proxy. See also \fB\-c\fR and \fB\-P\fR.
+
+.TP
+.BI "\-P " prefix
+Specifies the prefix to use in front of the username in the extra CN field of
+the pilot sub-proxy. See also \fB\-c\fR and \fB\-u\fR. Default: \fIuser:\fR
+
+.TP
+.BI "\-x " "pilot proxy"
+Specifies the pilot proxy file. Must contain also the private key.
+Default: \fI$X509_USER_PROXY\fR or when unset \fI/tmp/x509up_u<user's UID>\fR.
+
+.TP
+.BI "\-p " "payload proxy"
+Specifies the payload proxy file, i.e. the output pilot sub-proxy.
+Default: \fI${X509_USER_PROXY}_payload\fR or when X509_USER_PROXY is 
+unset \fI/tmp/x509up_u<user's UID>_payload\fR.
+
+.TP
+.BI "\-h "
+Print a short help text
+
+.TP
+.BI "\-v "
+Produce verbose output
+
+
+.SH EXIT VALUES
+.TP
+.B 0
+Success.
+.TP
+.B 1
+general error
+.TP
+.B 2
+invalid option or option missing argument
+
+
+.SH SEE ALSO
+.BR lcmaps (3),
+.BR lcmaps_pilot_sub_proxy.mod (8),
+.br
+
+
+.SH AUTHORS
+LCMAPS and the LCMAPS plug-ins were written by the Grid Middleware Security Team
+<grid-mw-security@nikhef.nl>.

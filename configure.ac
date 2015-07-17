@@ -72,5 +72,6 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([doc/Makefile])
 AC_CONFIG_FILES([doc/man/lcmaps_pilot_sub_proxy.mod.8])
+AC_CONFIG_FILES([doc/man/create_pilot_subproxy.sh.1])
 
 AC_OUTPUT
