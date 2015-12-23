@@ -33,14 +33,24 @@ PROXY_FILE=${X509_USER_PROXY}_payload
 BITS=1024				# RSA keylength
 HASH=sha256				# hash algorithm
 
+# Programs
+OD=$(which od)
+TR=$(which tr)
+RM=$(which rm)
+CAT=$(which cat)
+SED=$(which sed)
+MKTEMP=$(which mktemp)
+BASENAME=$(which basename)
+OPENSSL=$(which openssl)
+
 # Script name
-prog=$(basename $0)
+prog=$($BASENAME $0)
 
 ########################################################################
 
 # Usage function
 usage()	{
-    echo "Usage: $(basename $0) <options>"
+    echo "Usage: $($BASENAME $0) <options>"
     echo "Options:"
     echo " -h             print this help text"
     echo " -v             be verbose"
@@ -99,25 +109,25 @@ fi
 # Set nameopts for getting subject from proxy
 NAMEOPTS="esc_2253,esc_ctrl,utf8,dump_nostr,dump_der,sep_multiline,sname"
 
-# New serial number
-SERIAL=$(expr $RANDOM \* $RANDOM)
+# New serial number: use 4 random bytes
+SERIAL=$($OPENSSL rand 4|$OD -t u4 -A n|$TR -d '[:space:]')
 
 # Enforce umask
 umask 077
 
 # Different tempfiles: put in separate directory in $TMPDIR or /tmp
-PROXYTMPDIR=$(mktemp -d --tmpdir create_pusp_XXXXXX)
-OPENSSL_CONF=$(mktemp --tmpdir=$PROXYTMPDIR openssl.cnf.XXXXXX)
-PROXYREQ=$(mktemp --tmpdir=$PROXYTMPDIR proxyrequest.XXXXXX)
-PROXYKEY=$(mktemp --tmpdir=$PROXYTMPDIR proxykey.XXXXXX)
-PROXYCERT=$(mktemp --tmpdir=$PROXYTMPDIR proxycert.XXXXXX)
-LOGFILE=$(mktemp --tmpdir=$PROXYTMPDIR logfile.XXXXXX)
+PROXYTMPDIR=$($MKTEMP -d --tmpdir create_pusp_XXXXXX)
+OPENSSL_CONF=$($MKTEMP --tmpdir=$PROXYTMPDIR openssl.cnf.XXXXXX)
+PROXYREQ=$($MKTEMP --tmpdir=$PROXYTMPDIR proxyrequest.XXXXXX)
+PROXYKEY=$($MKTEMP --tmpdir=$PROXYTMPDIR proxykey.XXXXXX)
+PROXYCERT=$($MKTEMP --tmpdir=$PROXYTMPDIR proxycert.XXXXXX)
+LOGFILE=$($MKTEMP --tmpdir=$PROXYTMPDIR logfile.XXXXXX)
 
 cleanup()   {
-    # Don't do a rm -rf for safety 
+    # Don't do a $RM -rf for safety 
     for f in "$OPENSSL_CONF" "$PROXYREQ" "$PROXYKEY" "$PROXYCERT" "$LOGFILE";do
 	if [ -n "$f" -a -f "$f" ];then
-	    rm "$f"
+	    $RM "$f"
 	fi
     done
     rmdir $PROXYTMPDIR || {
@@ -132,7 +142,7 @@ myexit()    {
 
 # Create OpenSSL config file on the fly. Need RFC compliant limited proxy with
 # proxy-path-length 0 (no more proxy delegations allowed).
-cat > $OPENSSL_CONF << EOF
+$CAT > $OPENSSL_CONF << EOF
 extensions = rfc3820_proxy
 
 [ rfc3820_proxy ]
@@ -148,8 +158,8 @@ p1 = OID:1.3.6.1.4.1.3536.1.1.1.9
 EOF
 
 # Get subject from input proxy
-SUBJ=$(openssl x509 -in $X509_USER_PROXY -noout -subject -nameopt $NAMEOPTS|\
-       sed '1d;s:^ *:/:'|tr -d '\n')
+SUBJ=$($OPENSSL x509 -in $X509_USER_PROXY -noout -subject -nameopt $NAMEOPTS|\
+       $SED 's+/+\\/+g'|$SED '1d;s:^ *:/:'|$TR -d '\n')
 if [ -z "$SUBJ" ];then
     echo "Getting subject of $X509_USER_PROXY failed" >&2
     myexit 1
@@ -158,32 +168,32 @@ verb "Got subject \"$SUBJ\""
 
 # Create certificate signing request
 verb "Generating $BITS bits RSA key and request for \"${PROXY_CN}\""
-openssl req \
-    -new -nodes -newkey rsa:$BITS -subj "${SUBJ}/CN=${PROXY_CN}" \
+$OPENSSL req \
+    -utf8 -new -nodes -newkey rsa:$BITS -subj "${SUBJ}/CN=${PROXY_CN}" \
     -keyout $PROXYKEY -out $PROXYREQ 2> $LOGFILE || {
 	echo "Creating request failed, logfile:" >&2
-	cat $LOGFILE >&2
+	$CAT $LOGFILE >&2
 	myexit 1
     }
 
 # Sign certificate signing request, creating proxy certificate
 verb "Signing key and request to create proxy cert"
-openssl x509 \
+$OPENSSL x509 \
     -req -CAkeyform pem -in $PROXYREQ -out $PROXYCERT \
     -CA $X509_USER_PROXY -CAkey $X509_USER_PROXY \
     -set_serial $SERIAL -days 1 -$HASH \
     -extfile $OPENSSL_CONF 2> $LOGFILE || {
 	echo "Signing request failed, logfile:" >&2
-	cat $LOGFILE >&2
+	$CAT $LOGFILE >&2
 	myexit 1
     }
 
 # Add new cert and key to proxy file
-cat $PROXYCERT $PROXYKEY > $PROXY_FILE
+$CAT $PROXYCERT $PROXYKEY > $PROXY_FILE
 
 # Append certificate only parts of input proxy
 doprint=0
-cat $X509_USER_PROXY | while read line ; do
+$CAT $X509_USER_PROXY | while read line ; do
     if [ "$line" = "-----BEGIN CERTIFICATE-----" ];then
 	echo "$line"
 	doprint=1
