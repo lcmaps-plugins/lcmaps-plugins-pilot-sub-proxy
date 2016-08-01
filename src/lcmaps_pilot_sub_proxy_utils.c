@@ -253,7 +253,7 @@ int psp_get_fqans(int *nfqans, char ***fqans, int argc, lcmaps_argument_t *argv)
 int psp_get_pcpathlen(STACK_OF(X509) *chain, long *pcpathlen) {
     const int purpose=X509_PURPOSE_MIN + X509_PURPOSE_get_by_sname("sslclient");
     int i, depth, eec_index, amount_of_CAs=0;
-    long proxy_path_len_countdown=-1;
+    long ex_pcpathlen, proxy_path_len_countdown=-1;
     X509 *cert=NULL;
 
     /* Go through chain to look for EEC: count number of CA certs */
@@ -298,6 +298,11 @@ int psp_get_pcpathlen(STACK_OF(X509) *chain, long *pcpathlen) {
 	}
 
 	/* Now check and update the effective remaining proxy path length */
+#if OPENSSL_VERSION_NUMBER < 0x010100000L
+	ex_pcpathlen=cert->ex_pcpathlen;
+#else
+	ex_pcpathlen=X509_get_proxy_pathlen(cert);
+#endif
 	switch (proxy_path_len_countdown)   {
 	    case 0:
 		lcmaps_log(LOG_NOTICE,
@@ -306,15 +311,14 @@ int psp_get_pcpathlen(STACK_OF(X509) *chain, long *pcpathlen) {
 		return -1;
 	    case -1:
 		/* no effective pcpathlen yet: set when we have one now */
-		if (cert->ex_pcpathlen != -1)
-		    proxy_path_len_countdown=cert->ex_pcpathlen;
+		if (ex_pcpathlen != -1)
+		    proxy_path_len_countdown=ex_pcpathlen;
 		break;
 	    default:
 		/* already effective pcpathlen */
-		if (cert->ex_pcpathlen != -1 &&
-		    cert->ex_pcpathlen<proxy_path_len_countdown)
+		if (ex_pcpathlen != -1 && ex_pcpathlen<proxy_path_len_countdown)
 		    /* we have a new one and it is smaller: update */
-		    proxy_path_len_countdown=cert->ex_pcpathlen;
+		    proxy_path_len_countdown=ex_pcpathlen;
 		else
 		    /* decrease current one */
 		    proxy_path_len_countdown--;
